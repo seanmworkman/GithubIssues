@@ -123,13 +123,25 @@ async function pollForAnalysisResults(
   sessionId: string,
   originalIssues: GitHubIssue[],
   apiKey: string,
-  maxAttempts = 60,
-  intervalMs = 10000
+  maxAttempts = 30,
+  intervalMs = 5000
 ): Promise<AnalyzedIssue[]> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  const issueNums = originalIssues.map((i) => i.number).join(", ");
+  console.log(`  Polling session ${sessionId} for issues [${issueNums}] (max ${maxAttempts} attempts, ${intervalMs}ms interval)`);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
-    const details = await getSessionDetails(sessionId, apiKey);
+    let details;
+    try {
+      details = await getSessionDetails(sessionId, apiKey);
+    } catch (err) {
+      console.error(`  Poll attempt ${attempt}/${maxAttempts}: Error fetching session details:`, err);
+      continue;
+    }
+
+    const hasOutput = !!details.structured_output;
+    console.log(`  Poll attempt ${attempt}/${maxAttempts}: status=${details.status}, hasStructuredOutput=${hasOutput}`);
 
     if (details.structured_output) {
       const parsed = parseAnalysisOutput(details.structured_output);
@@ -138,13 +150,17 @@ async function pollForAnalysisResults(
           (i) => i.summary && i.feature
         );
 
+        console.log(`  Parsed ${completedIssues.length}/${originalIssues.length} completed issues from structured output`);
+
         if (completedIssues.length >= originalIssues.length * 0.5) {
+          console.log(`  Sufficient results, returning analysis`);
           return mergeAnalysisWithOriginal(completedIssues, originalIssues);
         }
       }
     }
 
     if (details.status === "finished" || details.status === "stopped" || details.status === "error") {
+      console.log(`  Session ended with status=${details.status}`);
       if (details.structured_output) {
         const parsed = parseAnalysisOutput(details.structured_output);
         if (parsed) {
@@ -152,6 +168,7 @@ async function pollForAnalysisResults(
         }
       }
 
+      console.log(`  No structured output, using fallback for issues [${issueNums}]`);
       return originalIssues.map((issue) => ({
         number: issue.number,
         title: issue.title,
@@ -169,6 +186,7 @@ async function pollForAnalysisResults(
     }
   }
 
+  console.log(`  Polling timed out after ${maxAttempts} attempts for session ${sessionId}, using fallback`);
   return originalIssues.map((issue) => ({
     number: issue.number,
     title: issue.title,

@@ -24,7 +24,7 @@ export default function AnalysisStatus({
         </h2>
         <p className="text-gray-500 mb-4 max-w-md">
           Click the button below to fetch and analyze the top 400 open issues from
-          openclaw/openclaw using Devin AI.
+          wso2/financial-services-accelerator using Devin AI.
         </p>
         <button
           onClick={onStartAnalysis}

@@ -109,7 +109,7 @@ export default function App() {
                   GitHub Issues Triage
                 </h1>
                 <p className="text-xs text-gray-500">
-                  openclaw/openclaw &middot; {issues.length} issues loaded
+                  wso2/financial-services-accelerator &middot; {issues.length} issues loaded
                 </p>
               </div>
             </div>

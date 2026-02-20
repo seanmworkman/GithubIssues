@@ -1,8 +1,8 @@
 import { GitHubIssue } from "./types";
 
 const GITHUB_API_BASE = "https://api.github.com";
-const REPO_OWNER = "openclaw";
-const REPO_NAME = "openclaw";
+const REPO_OWNER = "wso2";
+const REPO_NAME = "financial-services-accelerator";
 const ISSUES_PER_PAGE = 100;
 const MAX_ISSUES = 400;
 
