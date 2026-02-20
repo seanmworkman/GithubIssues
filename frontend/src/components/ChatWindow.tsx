@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2, MessageSquare, ExternalLink, X } from "lucide-react";
-import { ChatMessage } from "../types";
+import type { ChatMessage } from "../types";
 import { createChatSession, sendChatMessage, getChatSession } from "../api";
 
 interface ChatWindowProps {

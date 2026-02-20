@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Github, RefreshCw } from "lucide-react";
-import { AnalyzedIssue, SortField, SortDirection } from "./types";
+import type { AnalyzedIssue, SortField, SortDirection } from "./types";
 import { fetchIssues, triggerAnalysis, fetchStarredIssues, starIssue, unstarIssue } from "./api";
 import AnalysisStatus from "./components/AnalysisStatus";
 import SortControls from "./components/SortControls";
@@ -59,7 +59,8 @@ export default function App() {
       setStatus("fetching");
       loadIssues();
     } catch (err) {
-      console.error("Failed to start analysis:", err);
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Failed to start analysis");
     }
   };
 

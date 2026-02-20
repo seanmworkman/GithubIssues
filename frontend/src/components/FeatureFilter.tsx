@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { AnalyzedIssue } from "../types";
+import type { AnalyzedIssue } from "../types";
 
 interface FeatureFilterProps {
   issues: AnalyzedIssue[];

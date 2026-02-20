@@ -1,5 +1,5 @@
 import { Star, ExternalLink, MessageSquare } from "lucide-react";
-import { AnalyzedIssue } from "../types";
+import type { AnalyzedIssue } from "../types";
 
 interface IssueCardProps {
   issue: AnalyzedIssue;

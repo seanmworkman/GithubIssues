@@ -1,5 +1,5 @@
 import { Star } from "lucide-react";
-import { AnalyzedIssue } from "../types";
+import type { AnalyzedIssue } from "../types";
 import IssueCard from "./IssueCard";
 
 interface StarredSectionProps {

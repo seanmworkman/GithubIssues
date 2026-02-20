@@ -1,5 +1,5 @@
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { SortField, SortDirection } from "../types";
+import type { SortField, SortDirection } from "../types";
 
 interface SortControlsProps {
   sortField: SortField;

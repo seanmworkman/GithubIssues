@@ -1,4 +1,4 @@
-import {
+import type {
   IssuesResponse,
   ChatSessionResponse,
   CreateChatResponse,
@@ -14,7 +14,10 @@ export async function fetchIssues(): Promise<IssuesResponse> {
 
 export async function triggerAnalysis(): Promise<{ message: string; status: string }> {
   const res = await fetch(`${API_BASE}/issues/analyze`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to trigger analysis");
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error || "Failed to trigger analysis");
+  }
   return res.json();
 }
 

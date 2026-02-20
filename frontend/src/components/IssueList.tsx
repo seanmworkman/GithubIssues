@@ -1,4 +1,5 @@
-import { AnalyzedIssue, SortField, SortDirection, PRIORITY_ORDER, DIFFICULTY_ORDER } from "../types";
+import type { AnalyzedIssue, SortField, SortDirection } from "../types";
+import { PRIORITY_ORDER, DIFFICULTY_ORDER } from "../types";
 import IssueCard from "./IssueCard";
 
 interface IssueListProps {
