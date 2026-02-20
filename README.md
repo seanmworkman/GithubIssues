@@ -2,7 +2,7 @@
 
 Triage, classify, and prioritize GitHub issues using AI-powered analysis via [Devin](https://devin.ai).
 
-This app pulls open issues from [openclaw/openclaw](https://github.com/openclaw/openclaw), uses the Devin API to summarize, prioritize, assess difficulty, and categorize each issue by feature area. A React-based UI displays the results with sorting, filtering, starring, and an integrated chat window for deep-diving into individual issues.
+This app pulls open issues from [wso2/financial-services-accelerator](https://github.com/wso2/financial-services-accelerator), uses the Devin API to summarize, prioritize, assess difficulty, and categorize each issue by feature area. A React-based UI displays the results with sorting, filtering, starring, and an integrated chat window for deep-diving into individual issues.
 
 ## Architecture
 
@@ -127,7 +127,7 @@ The frontend starts at `http://localhost:5173` and proxies `/api` requests to th
 
 ### 4. Analyze issues
 
-Open `http://localhost:5173` in your browser, then click **Start Analysis** to begin. Devin will fetch the top 400 open issues from openclaw/openclaw and analyze each batch.
+Open `http://localhost:5173` in your browser, then click **Start Analysis** to begin. Devin will fetch the top 400 open issues from wso2/financial-services-accelerator and analyze each one individually.
 
 ## Usage
 
