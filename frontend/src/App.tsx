@@ -4,7 +4,7 @@ import type { AnalyzedIssue, SortField, SortDirection } from "./types";
 import { fetchIssues, triggerAnalysis, fetchStarredIssues, starIssue, unstarIssue } from "./api";
 import AnalysisStatus from "./components/AnalysisStatus";
 import SortControls from "./components/SortControls";
-import FeatureFilter from "./components/FeatureFilter";
+import MultiSelectDropdown from "./components/MultiSelectDropdown";
 import StarredSection from "./components/StarredSection";
 import IssueList from "./components/IssueList";
 import ChatWindow from "./components/ChatWindow";
@@ -17,7 +17,9 @@ export default function App() {
   const [starredNumbers, setStarredNumbers] = useState<Set<number>>(new Set());
   const [sortField, setSortField] = useState<SortField>("priority");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [filterFeature, setFilterFeature] = useState<string | null>(null);
+  const [filterFeatures, setFilterFeatures] = useState<Set<string>>(new Set());
+  const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
+  const [filterDifficulties, setFilterDifficulties] = useState<Set<string>>(new Set());
   const [chatIssueNumber, setChatIssueNumber] = useState<number | null>(null);
 
   const loadIssues = useCallback(async () => {
@@ -144,13 +146,54 @@ export default function App() {
                   sortDirection={sortDirection}
                   onSortChange={handleSortChange}
                 />
-              </div>
-
-              <div className="mb-4">
-                <FeatureFilter
-                  issues={issues}
-                  selectedFeature={filterFeature}
-                  onSelectFeature={setFilterFeature}
+                <div className="h-6 w-px bg-gray-200" />
+                <MultiSelectDropdown
+                  label="Priority"
+                  options={["critical", "high", "medium", "low"]}
+                  selected={filterPriorities}
+                  onChange={setFilterPriorities}
+                  counts={new Map(issues.reduce<[string, number][]>((acc, i) => {
+                    const existing = acc.find(([k]) => k === i.priority);
+                    if (existing) existing[1]++;
+                    else acc.push([i.priority, 1]);
+                    return acc;
+                  }, []))}
+                  colorMap={{
+                    critical: "bg-red-100 text-red-800",
+                    high: "bg-orange-100 text-orange-800",
+                    medium: "bg-yellow-100 text-yellow-800",
+                    low: "bg-green-100 text-green-800",
+                  }}
+                />
+                <MultiSelectDropdown
+                  label="Difficulty"
+                  options={["easy", "medium", "hard", "expert"]}
+                  selected={filterDifficulties}
+                  onChange={setFilterDifficulties}
+                  counts={new Map(issues.reduce<[string, number][]>((acc, i) => {
+                    const existing = acc.find(([k]) => k === i.difficulty);
+                    if (existing) existing[1]++;
+                    else acc.push([i.difficulty, 1]);
+                    return acc;
+                  }, []))}
+                  colorMap={{
+                    easy: "bg-emerald-100 text-emerald-800",
+                    medium: "bg-blue-100 text-blue-800",
+                    hard: "bg-purple-100 text-purple-800",
+                    expert: "bg-pink-100 text-pink-800",
+                  }}
+                />
+                <MultiSelectDropdown
+                  label="Feature"
+                  options={Array.from(new Set(issues.map((i) => i.feature))).sort()}
+                  selected={filterFeatures}
+                  onChange={setFilterFeatures}
+                  counts={new Map(issues.reduce<[string, number][]>((acc, i) => {
+                    const existing = acc.find(([k]) => k === i.feature);
+                    if (existing) existing[1]++;
+                    else acc.push([i.feature, 1]);
+                    return acc;
+                  }, []))}
                 />
               </div>
 
@@ -166,7 +209,9 @@ export default function App() {
                 starredNumbers={starredNumbers}
                 sortField={sortField}
                 sortDirection={sortDirection}
-                filterFeature={filterFeature}
+                filterFeatures={filterFeatures}
+                filterPriorities={filterPriorities}
+                filterDifficulties={filterDifficulties}
                 onToggleStar={handleToggleStar}
                 onChatAbout={handleChatAbout}
               />

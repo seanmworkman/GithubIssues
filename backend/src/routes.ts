@@ -20,7 +20,7 @@ import {
   starIssue,
   unstarIssue,
 } from "./store";
-import { AnalyzedIssue, GitHubIssue } from "./types";
+import type { AnalyzedIssue, GitHubIssue, StaleReason } from "./types";
 
 const router = Router();
 
@@ -100,6 +100,8 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
           priority: "medium" as const,
           difficulty: "medium" as const,
           feature: inferFeatureFromLabels(issue),
+          stale: false,
+          staleReason: null,
           html_url: issue.html_url,
           labels: issue.labels,
           created_at: issue.created_at,
@@ -157,6 +159,8 @@ async function pollForAnalysisResults(
         priority: "medium" as const,
         difficulty: "medium" as const,
         feature: inferFeatureFromLabels(issue),
+        stale: false,
+        staleReason: null,
         html_url: issue.html_url,
         labels: issue.labels,
         created_at: issue.created_at,
@@ -172,12 +176,16 @@ async function pollForAnalysisResults(
     priority: "medium" as const,
     difficulty: "medium" as const,
     feature: inferFeatureFromLabels(issue),
+    stale: false,
+    staleReason: null,
     html_url: issue.html_url,
     labels: issue.labels,
     created_at: issue.created_at,
     comments: issue.comments,
   }));
 }
+
+const VALID_STALE_REASONS = new Set(["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved"]);
 
 function mergeAnalysisWithOriginal(
   analyzed: Array<{
@@ -186,6 +194,8 @@ function mergeAnalysisWithOriginal(
     priority: "critical" | "high" | "medium" | "low";
     difficulty: "easy" | "medium" | "hard" | "expert";
     feature: string;
+    stale?: boolean;
+    staleReason?: string | null;
   }>,
   original: GitHubIssue[]
 ): AnalyzedIssue[] {
@@ -196,6 +206,10 @@ function mergeAnalysisWithOriginal(
       const orig = originalMap.get(a.number);
       if (!orig) return null;
 
+      const staleReason = (a.staleReason && VALID_STALE_REASONS.has(a.staleReason))
+        ? a.staleReason as StaleReason
+        : null;
+
       return {
         number: a.number,
         title: orig.title,
@@ -203,6 +217,8 @@ function mergeAnalysisWithOriginal(
         priority: a.priority || "medium",
         difficulty: a.difficulty || "medium",
         feature: a.feature || inferFeatureFromLabels(orig),
+        stale: a.stale === true,
+        staleReason,
         html_url: orig.html_url,
         labels: orig.labels,
         created_at: orig.created_at,
@@ -253,6 +269,8 @@ router.get("/issues/:issueNumber", async (req: Request, res: Response) => {
       priority: "medium",
       difficulty: "medium",
       feature: inferFeatureFromLabels(issue),
+      stale: false,
+      staleReason: null,
       html_url: issue.html_url,
       labels: issue.labels,
       created_at: issue.created_at,

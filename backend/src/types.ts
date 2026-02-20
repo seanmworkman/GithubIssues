@@ -11,6 +11,8 @@ export interface GitHubIssue {
   user: { login: string; avatar_url: string } | null;
 }
 
+export type StaleReason = "outdated" | "duplicate" | "wont-fix" | "not-reproducible" | "already-resolved" | null;
+
 export interface AnalyzedIssue {
   number: number;
   title: string;
@@ -18,6 +20,8 @@ export interface AnalyzedIssue {
   priority: "critical" | "high" | "medium" | "low";
   difficulty: "easy" | "medium" | "hard" | "expert";
   feature: string;
+  stale: boolean;
+  staleReason: StaleReason;
   html_url: string;
   labels: Array<{ name: string; color: string }>;
   created_at: string;
@@ -60,5 +64,7 @@ export interface AnalysisBatch {
     priority: "critical" | "high" | "medium" | "low";
     difficulty: "easy" | "medium" | "hard" | "expert";
     feature: string;
+    stale: boolean;
+    staleReason: string | null;
   }>;
 }

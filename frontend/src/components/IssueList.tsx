@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { AnalyzedIssue, SortField, SortDirection } from "../types";
 import { PRIORITY_ORDER, DIFFICULTY_ORDER } from "../types";
 import IssueCard from "./IssueCard";
@@ -7,7 +8,9 @@ interface IssueListProps {
   starredNumbers: Set<number>;
   sortField: SortField;
   sortDirection: SortDirection;
-  filterFeature: string | null;
+  filterFeatures: Set<string>;
+  filterPriorities: Set<string>;
+  filterDifficulties: Set<string>;
   onToggleStar: (issueNumber: number) => void;
   onChatAbout: (issueNumber: number) => void;
 }
@@ -47,22 +50,71 @@ function groupByFeature(issues: AnalyzedIssue[]): Map<string, AnalyzedIssue[]> {
   return groups;
 }
 
+function AnimatedCard({
+  issue,
+  isStarred,
+  onToggleStar,
+  onChatAbout,
+}: {
+  issue: AnalyzedIssue;
+  isStarred: boolean;
+  onToggleStar: (n: number) => void;
+  onChatAbout: (n: number) => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="transition-all duration-300 ease-out"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.97)",
+      }}
+    >
+      <IssueCard
+        issue={issue}
+        isStarred={isStarred}
+        onToggleStar={onToggleStar}
+        onChatAbout={onChatAbout}
+      />
+    </div>
+  );
+}
+
 export default function IssueList({
   issues,
   starredNumbers,
   sortField,
   sortDirection,
-  filterFeature,
+  filterFeatures,
+  filterPriorities,
+  filterDifficulties,
   onToggleStar,
   onChatAbout,
 }: IssueListProps) {
   const unstarredIssues = issues.filter((i) => !starredNumbers.has(i.number));
-  const filtered = filterFeature
-    ? unstarredIssues.filter((i) => i.feature === filterFeature)
-    : unstarredIssues;
+
+  let filtered = unstarredIssues;
+  if (filterFeatures.size > 0) {
+    filtered = filtered.filter((i) => filterFeatures.has(i.feature));
+  }
+  if (filterPriorities.size > 0) {
+    filtered = filtered.filter((i) => filterPriorities.has(i.priority));
+  }
+  if (filterDifficulties.size > 0) {
+    filtered = filtered.filter((i) => filterDifficulties.has(i.difficulty));
+  }
+
   const sorted = sortIssues(filtered, sortField, sortDirection);
 
-  if (sortField === "feature" && !filterFeature) {
+  if (sortField === "feature" && filterFeatures.size === 0) {
     const grouped = groupByFeature(sorted);
     const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) =>
       sortDirection === "asc" ? a.localeCompare(b) : b.localeCompare(a)
@@ -81,7 +133,7 @@ export default function IssueList({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {groupIssues.map((issue) => (
-                <IssueCard
+                <AnimatedCard
                   key={issue.number}
                   issue={issue}
                   isStarred={starredNumbers.has(issue.number)}
@@ -99,7 +151,7 @@ export default function IssueList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {sorted.map((issue) => (
-        <IssueCard
+        <AnimatedCard
           key={issue.number}
           issue={issue}
           isStarred={starredNumbers.has(issue.number)}

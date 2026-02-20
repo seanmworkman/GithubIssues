@@ -69,6 +69,7 @@ export async function createSingleIssueAnalysisSession(
 Issue #${issue.number}: "${issue.title}"
 Labels: ${issue.labels.map((l) => l.name).join(", ") || "none"}
 Comments: ${issue.comments}
+Created: ${issue.created_at}
 Body: ${(issue.body || "No description").substring(0, 500)}
 
 Provide:
@@ -76,6 +77,7 @@ Provide:
 2. Priority: "critical", "high", "medium", or "low" (based on impact, number of comments, severity)
 3. Difficulty: "easy", "medium", "hard", or "expert" (based on complexity, scope of changes needed)
 4. Feature category: a short label like "smart-contracts", "ui", "documentation", "api", "templates", "authentication", "editor", "testing", "infrastructure", "integrations", or another relevant category
+5. Stale detection: Determine if this issue appears stale or should not be in the backlog. Set "stale" to true if the issue seems outdated, is likely a duplicate, won't be fixed, is not reproducible, or has already been resolved. If stale, set "staleReason" to one of: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved". Otherwise set stale to false and staleReason to null.
 
 IMPORTANT: Update your structured output immediately with the analysis.`;
 
@@ -87,6 +89,8 @@ IMPORTANT: Update your structured output immediately with the analysis.`;
         priority: "medium",
         difficulty: "medium",
         feature: "",
+        stale: false,
+        staleReason: null,
       },
     ],
   });

@@ -1,4 +1,4 @@
-import { Star, ExternalLink, MessageSquare } from "lucide-react";
+import { Star, ExternalLink, MessageSquare, AlertTriangle } from "lucide-react";
 import type { AnalyzedIssue } from "../types";
 
 interface IssueCardProps {
@@ -22,6 +22,14 @@ const DIFFICULTY_COLORS: Record<AnalyzedIssue["difficulty"], string> = {
   expert: "bg-pink-100 text-pink-800 border-pink-200",
 };
 
+const STALE_REASON_LABELS: Record<string, string> = {
+  outdated: "Outdated",
+  duplicate: "Duplicate",
+  "wont-fix": "Won't Fix",
+  "not-reproducible": "Not Reproducible",
+  "already-resolved": "Already Resolved",
+};
+
 export default function IssueCard({
   issue,
   isStarred,
@@ -29,7 +37,11 @@ export default function IssueCard({
   onChatAbout,
 }: IssueCardProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`rounded-lg border p-4 shadow-sm hover:shadow-md transition-shadow ${
+      issue.stale
+        ? "bg-amber-50 border-amber-300"
+        : "bg-white border-gray-200"
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -61,6 +73,12 @@ export default function IssueCard({
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
               {issue.feature}
             </span>
+            {issue.stale && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                <AlertTriangle size={10} />
+                {issue.staleReason ? STALE_REASON_LABELS[issue.staleReason] ?? "Stale" : "Stale"}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-1.5 shrink-0">
