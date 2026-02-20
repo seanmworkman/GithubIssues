@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { fetchOpenIssues, fetchSingleIssue } from "./github";
 import {
-  createAnalysisSession,
+  createSingleIssueAnalysisSession,
   getSessionDetails,
   createResearchSession,
   sendSessionMessage,
@@ -23,8 +23,6 @@ import {
 import { AnalyzedIssue, GitHubIssue } from "./types";
 
 const router = Router();
-
-const BATCH_SIZE = 5;
 
 router.get("/issues", (_req: Request, res: Response) => {
   const store = getStore();
@@ -65,40 +63,37 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
     console.log(`Fetched ${rawIssues.length} issues from GitHub`);
 
     setAnalysisStatus("analyzing");
+    setAnalysisProgress(0, rawIssues.length);
+    console.log(`Processing ${rawIssues.length} issues one-by-one`);
 
-    const batches: GitHubIssue[][] = [];
-    for (let i = 0; i < rawIssues.length; i += BATCH_SIZE) {
-      batches.push(rawIssues.slice(i, i + BATCH_SIZE));
-    }
+    for (let i = 0; i < rawIssues.length; i++) {
+      const issue = rawIssues[i];
+      setAnalysisProgress(i, rawIssues.length, `#${issue.number}: ${issue.title}`);
 
-    setAnalysisProgress(0, batches.length);
-    console.log(`Split into ${batches.length} batches of ~${BATCH_SIZE} issues`);
-
-    for (let i = 0; i < batches.length; i++) {
       try {
-        const session = await createAnalysisSession(batches[i], i, apiKey);
-        console.log(`Created analysis session ${session.session_id} for batch ${i + 1}`);
+        const session = await createSingleIssueAnalysisSession(issue, apiKey);
+        console.log(`[${i + 1}/${rawIssues.length}] Created session ${session.session_id} for issue #${issue.number}`);
 
         addAnalysisSession(
-          `batch-${i}`,
+          `issue-${issue.number}`,
           session.session_id,
           i,
-          batches[i].map((issue) => issue.number)
+          [issue.number]
         );
 
         const analyzed = await pollForAnalysisResults(
           session.session_id,
-          batches[i],
+          [issue],
           apiKey
         );
 
         addIssues(analyzed);
-        setAnalysisProgress(i + 1, batches.length);
-        console.log(`Batch ${i + 1}/${batches.length} complete: ${analyzed.length} issues analyzed`);
-      } catch (batchError) {
-        console.error(`Error analyzing batch ${i + 1}:`, batchError);
+        setAnalysisProgress(i + 1, rawIssues.length);
+        console.log(`[${i + 1}/${rawIssues.length}] Issue #${issue.number} analyzed`);
+      } catch (issueError) {
+        console.error(`[${i + 1}/${rawIssues.length}] Error analyzing issue #${issue.number}:`, issueError);
 
-        const fallbackIssues = batches[i].map((issue) => ({
+        addIssues([{
           number: issue.number,
           title: issue.title,
           summary: (issue.body || "No description available").substring(0, 200),
@@ -109,10 +104,8 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
           labels: issue.labels,
           created_at: issue.created_at,
           comments: issue.comments,
-        }));
-
-        addIssues(fallbackIssues);
-        setAnalysisProgress(i + 1, batches.length);
+        }]);
+        setAnalysisProgress(i + 1, rawIssues.length);
       }
     }
 

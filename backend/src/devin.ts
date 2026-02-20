@@ -60,6 +60,54 @@ ${issuesSummary}`;
   return response.json() as Promise<DevinSession>;
 }
 
+export async function createSingleIssueAnalysisSession(
+  issue: GitHubIssue,
+  apiKey: string
+): Promise<DevinSession> {
+  const prompt = `You are analyzing a single GitHub issue from the openclaw/openclaw repository (an open-source legal contracting toolkit).
+
+Issue #${issue.number}: "${issue.title}"
+Labels: ${issue.labels.map((l) => l.name).join(", ") || "none"}
+Comments: ${issue.comments}
+Body: ${(issue.body || "No description").substring(0, 500)}
+
+Provide:
+1. A concise 1-2 sentence summary
+2. Priority: "critical", "high", "medium", or "low" (based on impact, number of comments, severity)
+3. Difficulty: "easy", "medium", "hard", or "expert" (based on complexity, scope of changes needed)
+4. Feature category: a short label like "smart-contracts", "ui", "documentation", "api", "templates", "authentication", "editor", "testing", "infrastructure", "integrations", or another relevant category
+
+IMPORTANT: Update your structured output immediately with the analysis.`;
+
+  const structuredOutputSchema = JSON.stringify({
+    issues: [
+      {
+        number: issue.number,
+        summary: "",
+        priority: "medium",
+        difficulty: "medium",
+        feature: "",
+      },
+    ],
+  });
+
+  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
+    method: "POST",
+    headers: getHeaders(apiKey),
+    body: JSON.stringify({
+      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${structuredOutputSchema}`,
+      idempotent: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Devin API error (${response.status}): ${errorText}`);
+  }
+
+  return response.json() as Promise<DevinSession>;
+}
+
 export async function getSessionDetails(
   sessionId: string,
   apiKey: string

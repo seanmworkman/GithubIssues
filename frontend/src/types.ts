@@ -15,7 +15,7 @@ export interface IssuesResponse {
   issues: AnalyzedIssue[];
   status: "idle" | "fetching" | "analyzing" | "complete" | "error";
   error: string | null;
-  progress: { completed: number; total: number };
+  progress: { completed: number; total: number; currentIssue: string | null };
 }
 
 export interface ChatMessage {

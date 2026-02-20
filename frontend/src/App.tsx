@@ -13,7 +13,7 @@ export default function App() {
   const [issues, setIssues] = useState<AnalyzedIssue[]>([]);
   const [status, setStatus] = useState<"idle" | "fetching" | "analyzing" | "complete" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  const [progress, setProgress] = useState({ completed: 0, total: 0, currentIssue: null as string | null });
   const [starredNumbers, setStarredNumbers] = useState<Set<number>>(new Set());
   const [sortField, setSortField] = useState<SortField>("priority");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");

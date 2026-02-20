@@ -7,7 +7,7 @@ interface Store {
   starredIssues: Set<number>;
   analysisStatus: "idle" | "fetching" | "analyzing" | "complete" | "error";
   analysisError: string | null;
-  analysisProgress: { completed: number; total: number };
+  analysisProgress: { completed: number; total: number; currentIssue: string | null };
 }
 
 const store: Store = {
@@ -17,7 +17,7 @@ const store: Store = {
   starredIssues: new Set(),
   analysisStatus: "idle",
   analysisError: null,
-  analysisProgress: { completed: 0, total: 0 },
+  analysisProgress: { completed: 0, total: 0, currentIssue: null },
 };
 
 export function getStore(): Store {
@@ -45,8 +45,8 @@ export function setAnalysisStatus(
   }
 }
 
-export function setAnalysisProgress(completed: number, total: number): void {
-  store.analysisProgress = { completed, total };
+export function setAnalysisProgress(completed: number, total: number, currentIssue?: string): void {
+  store.analysisProgress = { completed, total, currentIssue: currentIssue ?? null };
 }
 
 export function addAnalysisSession(

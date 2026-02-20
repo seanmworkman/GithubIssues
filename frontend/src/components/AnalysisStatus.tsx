@@ -3,7 +3,7 @@ import { Loader2, AlertCircle, PlayCircle } from "lucide-react";
 interface AnalysisStatusProps {
   status: "idle" | "fetching" | "analyzing" | "complete" | "error";
   error: string | null;
-  progress: { completed: number; total: number };
+  progress: { completed: number; total: number; currentIssue: string | null };
   issueCount: number;
   onStartAnalysis: () => void;
 }
@@ -58,9 +58,14 @@ export default function AnalysisStatus({
           <Loader2 size={18} className="text-blue-500 animate-spin" />
           <span className="text-sm text-blue-700 font-medium">
             Analyzing issues with Devin AI... ({progress.completed}/{progress.total}{" "}
-            batches)
+            issues)
           </span>
         </div>
+        {progress.currentIssue && (
+          <p className="text-xs text-blue-600 mb-2 truncate">
+            Currently analyzing: {progress.currentIssue}
+          </p>
+        )}
         <div className="w-full bg-blue-100 rounded-full h-2">
           <div
             className="bg-blue-500 h-2 rounded-full transition-all duration-500"
