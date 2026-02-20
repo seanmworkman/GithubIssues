@@ -24,7 +24,7 @@ import { AnalyzedIssue, GitHubIssue } from "./types";
 
 const router = Router();
 
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 5;
 
 router.get("/issues", (_req: Request, res: Response) => {
   const store = getStore();

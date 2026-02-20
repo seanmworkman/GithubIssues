@@ -59,7 +59,9 @@ export default function ChatWindow({ prefillIssueNumber, onClearPrefill }: ChatW
           if (assistantMessages.length > 0) {
             setMessages((prev) => {
               const userMessages = prev.filter((m) => m.role === "user");
-              return [...userMessages, ...assistantMessages];
+              const merged = [...userMessages, ...assistantMessages];
+              merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+              return merged;
             });
           }
 
