@@ -57,9 +57,28 @@ GithubIssues/
 
 ## Prerequisites
 
-- **Node.js** >= 18
+- **Node.js** >= 18 (see [Version Compatibility](#version-compatibility) below)
+- **npm** >= 9
 - **Devin API Key** ([generate one here](https://app.devin.ai/settings/api-keys))
 - **GitHub Token** (optional, increases rate limits)
+
+## Version Compatibility
+
+| Dependency | Minimum Version | Recommended | Notes |
+|------------|----------------|-------------|-------|
+| Node.js | 18.0.0 | 20 LTS or 22 LTS | Node 16 and below are not supported |
+| npm | 9.0.0 | 10+ | Comes bundled with Node.js |
+| Vite | 6.0.0 | 6.4+ | Vite 7 requires Node.js 21.7+ (`crypto.hash`); this project uses Vite 6 for broader compatibility |
+| React | 19.0.0 | 19.2+ | Uses React 19 features |
+| TypeScript | 5.5.0 | 5.9+ | Strict mode with `verbatimModuleSyntax` enabled |
+| Tailwind CSS | 4.0.0 | 4.2+ | Uses the `@tailwindcss/vite` plugin (v4 syntax) |
+| Express | 4.18.0 | 4.21+ | Backend HTTP framework |
+
+**Known compatibility issues:**
+
+- **Vite 7 + Node.js < 21.7**: Vite 7 uses `crypto.hash()` which was introduced in Node.js 21.7. If you see `TypeError: crypto.hash is not a function`, ensure you are using Vite 6 (already configured in this project) or upgrade Node.js to 22+.
+- **Tailwind CSS v4**: This project uses Tailwind CSS v4 with the Vite plugin (`@tailwindcss/vite`). Tailwind v3 configuration files (`tailwind.config.js`) are not used. Styles are imported via `@import "tailwindcss"` in `index.css`.
+- **TypeScript `verbatimModuleSyntax`**: The frontend tsconfig enables `verbatimModuleSyntax`, which requires all type-only imports to use `import type` syntax. This ensures compatibility with Vite's esbuild transform.
 
 ## Getting Started
 
