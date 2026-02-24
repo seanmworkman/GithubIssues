@@ -1,4 +1,4 @@
-import { Star, ExternalLink, MessageSquare, AlertTriangle } from "lucide-react";
+import { Star, ExternalLink, MessageSquare, AlertTriangle, GitPullRequest, Compass } from "lucide-react";
 import type { AnalyzedIssue } from "../types";
 
 interface IssueCardProps {
@@ -73,6 +73,12 @@ export default function IssueCard({
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
               {issue.feature}
             </span>
+            {issue.hasPR && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                <GitPullRequest size={10} />
+                Has PR
+              </span>
+            )}
             {issue.stale && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
                 <AlertTriangle size={10} />
@@ -80,6 +86,12 @@ export default function IssueCard({
               </span>
             )}
           </div>
+          {issue.startingPoint && (
+            <div className="flex items-start gap-1.5 mt-2 p-2 bg-slate-50 rounded-md border border-slate-200">
+              <Compass size={12} className="text-slate-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-slate-600 leading-relaxed">{issue.startingPoint}</p>
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-1.5 shrink-0">
           <button

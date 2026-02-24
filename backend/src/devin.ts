@@ -10,7 +10,7 @@ function getHeaders(apiKey: string): Record<string, string> {
 }
 
 const ANALYSIS_INSTRUCTIONS = `You are analyzing GitHub issues from the wso2/financial-services-accelerator repository. For each issue I send you, respond with ONLY a JSON object (no markdown, no explanation, no code fences) in this exact format:
-{"number":123,"summary":"...","priority":"medium","difficulty":"medium","feature":"...","stale":false,"staleReason":null}
+{"number":123,"summary":"...","priority":"medium","difficulty":"medium","feature":"...","stale":false,"staleReason":null,"hasPR":false,"startingPoint":"..."}
 
 Field values:
 - number: the issue number (integer)
@@ -20,6 +20,8 @@ Field values:
 - feature: a short label like "payments", "accounts", "consent-management", "api", "documentation", "authentication", "ui", "testing", "infrastructure", "integrations", "compliance", or similar
 - stale: true if the issue seems outdated, duplicate, won't-fix, not-reproducible, or already-resolved
 - staleReason: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved", or null
+- hasPR: true if the issue appears to already have an associated pull request (check for PR references, "fixes #", linked PRs, or mentions of a PR in the issue body/comments)
+- startingPoint: a brief 1-2 sentence suggestion for where a developer should start working on this issue (e.g. which files, modules, or components to look at), or null if unclear
 
 Respond with ONLY the JSON object. Nothing else.`;
 
@@ -145,6 +147,8 @@ interface SingleIssueAnalysis {
   feature: string;
   stale: boolean;
   staleReason: string | null;
+  hasPR: boolean;
+  startingPoint: string | null;
 }
 
 export function parseAnalysisFromMessage(content: string): SingleIssueAnalysis | null {
@@ -161,6 +165,8 @@ export function parseAnalysisFromMessage(content: string): SingleIssueAnalysis |
 
     const parsed = JSON.parse(jsonStr);
     if (typeof parsed.number === "number" && typeof parsed.summary === "string") {
+      parsed.hasPR = parsed.hasPR === true;
+      parsed.startingPoint = typeof parsed.startingPoint === "string" ? parsed.startingPoint : null;
       return parsed as SingleIssueAnalysis;
     }
     return null;

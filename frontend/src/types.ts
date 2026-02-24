@@ -9,6 +9,8 @@ export interface AnalyzedIssue {
   feature: string;
   stale: boolean;
   staleReason: StaleReason;
+  hasPR: boolean;
+  startingPoint: string | null;
   html_url: string;
   labels: Array<{ name: string; color: string }>;
   created_at: string;

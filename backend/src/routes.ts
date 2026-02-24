@@ -126,6 +126,8 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
         feature: inferFeatureFromLabels(issue),
         stale: false,
         staleReason: null,
+        hasPR: false,
+        startingPoint: null,
         html_url: issue.html_url,
         labels: issue.labels,
         created_at: issue.created_at,
@@ -214,6 +216,8 @@ function mergeAnalysisWithOriginal(
     feature: string;
     stale?: boolean;
     staleReason?: string | null;
+    hasPR?: boolean;
+    startingPoint?: string | null;
   }>,
   original: GitHubIssue[]
 ): AnalyzedIssue[] {
@@ -237,6 +241,8 @@ function mergeAnalysisWithOriginal(
         feature: a.feature || inferFeatureFromLabels(orig),
         stale: a.stale === true,
         staleReason,
+        hasPR: a.hasPR === true,
+        startingPoint: typeof a.startingPoint === "string" ? a.startingPoint : null,
         html_url: orig.html_url,
         labels: orig.labels,
         created_at: orig.created_at,
@@ -289,6 +295,8 @@ router.get("/issues/:issueNumber", async (req: Request, res: Response) => {
       feature: inferFeatureFromLabels(issue),
       stale: false,
       staleReason: null,
+      hasPR: false,
+      startingPoint: null,
       html_url: issue.html_url,
       labels: issue.labels,
       created_at: issue.created_at,
