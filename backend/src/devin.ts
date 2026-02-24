@@ -9,19 +9,22 @@ function getHeaders(apiKey: string): Record<string, string> {
   };
 }
 
-const ANALYSIS_INSTRUCTIONS = `You are analyzing GitHub issues from the wso2/financial-services-accelerator repository. For the issue I give you, respond by updating structured_output with a JSON object containing an "issues" array. Each entry needs:
-- number (integer)
-- summary (1-2 sentence string)
+const ANALYSIS_INSTRUCTIONS = `You are analyzing GitHub issues from the wso2/financial-services-accelerator repository. For each issue I send you, respond with ONLY a JSON object (no markdown, no explanation, no code fences) in this exact format:
+{"number":123,"summary":"...","priority":"medium","difficulty":"medium","feature":"...","stale":false,"staleReason":null}
+
+Field values:
+- number: the issue number (integer)
+- summary: 1-2 sentence description (string)
 - priority: "critical", "high", "medium", or "low"
 - difficulty: "easy", "medium", "hard", or "expert"
 - feature: a short label like "payments", "accounts", "consent-management", "api", "documentation", "authentication", "ui", "testing", "infrastructure", "integrations", "compliance", or similar
-- stale (boolean): true if the issue seems outdated, duplicate, won't-fix, not-reproducible, or already-resolved
+- stale: true if the issue seems outdated, duplicate, won't-fix, not-reproducible, or already-resolved
 - staleReason: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved", or null
 
-IMPORTANT: Each time I send you a new issue, ADD its analysis to the existing issues array in structured_output. Do NOT replace the array — append to it. Keep all previously analyzed issues in the array.`;
+Respond with ONLY the JSON object. Nothing else.`;
 
 function formatIssueForPrompt(issue: GitHubIssue): string {
-  return `Analyze this issue and ADD it to the structured_output issues array (keep all previous entries):
+  return `Analyze this issue and respond with ONLY the JSON object:
 
 #${issue.number}: "${issue.title}"
 Labels: ${issue.labels.map((l) => l.name).join(", ") || "none"}
@@ -131,6 +134,38 @@ export async function sendSessionMessage(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Devin API error (${response.status}): ${errorText}`);
+  }
+}
+
+interface SingleIssueAnalysis {
+  number: number;
+  summary: string;
+  priority: "critical" | "high" | "medium" | "low";
+  difficulty: "easy" | "medium" | "hard" | "expert";
+  feature: string;
+  stale: boolean;
+  staleReason: string | null;
+}
+
+export function parseAnalysisFromMessage(content: string): SingleIssueAnalysis | null {
+  try {
+    let jsonStr = content.trim();
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+    const braceStart = jsonStr.indexOf("{");
+    const braceEnd = jsonStr.lastIndexOf("}");
+    if (braceStart === -1 || braceEnd === -1) return null;
+    jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
+
+    const parsed = JSON.parse(jsonStr);
+    if (typeof parsed.number === "number" && typeof parsed.summary === "string") {
+      return parsed as SingleIssueAnalysis;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 

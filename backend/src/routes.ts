@@ -6,7 +6,7 @@ import {
   getSessionDetails,
   createResearchSession,
   sendSessionMessage,
-  parseAnalysisOutput,
+  parseAnalysisFromMessage,
 } from "./devin";
 import {
   getStore,
@@ -73,11 +73,20 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
 
     addAnalysisSession("analysis", sessionId, 0, rawIssues.map((i) => i.number));
 
-    console.log(`Waiting for first issue (#${rawIssues[0].number}) to be analyzed...`);
+    let lastMessageCount = 0;
+
+    console.log(`[1/${rawIssues.length}] Waiting for analysis of #${rawIssues[0].number}...`);
     setAnalysisProgress(0, rawIssues.length, `#${rawIssues[0].number} ${rawIssues[0].title}`);
-    await waitForIssueCount(sessionId, 1, rawIssues, apiKey);
+    const firstResult = await waitForNewAnalysis(sessionId, rawIssues[0].number, lastMessageCount, apiKey);
+    if (firstResult) {
+      lastMessageCount = firstResult.messageCount;
+      const merged = mergeAnalysisWithOriginal([firstResult.analysis], rawIssues);
+      addIssues(merged);
+      console.log(`[1/${rawIssues.length}] Issue #${rawIssues[0].number} analyzed`);
+    } else {
+      console.log(`[1/${rawIssues.length}] Timed out waiting for #${rawIssues[0].number}`);
+    }
     setAnalysisProgress(1, rawIssues.length);
-    console.log(`[1/${rawIssues.length}] Issue #${rawIssues[0].number} analyzed`);
 
     for (let i = 1; i < rawIssues.length; i++) {
       const issue = rawIssues[i];
@@ -86,22 +95,20 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
 
       try {
         await sendNextIssue(sessionId, issue, apiKey);
-        await waitForIssueCount(sessionId, i + 1, rawIssues, apiKey);
-        console.log(`[${i + 1}/${rawIssues.length}] Issue #${issue.number} analyzed`);
+        const result = await waitForNewAnalysis(sessionId, issue.number, lastMessageCount, apiKey);
+        if (result) {
+          lastMessageCount = result.messageCount;
+          const merged = mergeAnalysisWithOriginal([result.analysis], rawIssues);
+          addIssues(merged);
+          console.log(`[${i + 1}/${rawIssues.length}] Issue #${issue.number} analyzed`);
+        } else {
+          console.log(`[${i + 1}/${rawIssues.length}] Timed out waiting for #${issue.number}`);
+        }
       } catch (err) {
         console.error(`[${i + 1}/${rawIssues.length}] Error analyzing issue #${issue.number}:`, err);
       }
 
       setAnalysisProgress(i + 1, rawIssues.length);
-    }
-
-    const details = await getSessionDetails(sessionId, apiKey);
-    if (details.structured_output) {
-      const parsed = parseAnalysisOutput(details.structured_output);
-      if (parsed && parsed.issues.length > 0) {
-        const merged = mergeAnalysisWithOriginal(parsed.issues, rawIssues);
-        setIssues(merged);
-      }
     }
 
     const analyzed = getStore().issues;
@@ -134,14 +141,27 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
   }
 });
 
-async function waitForIssueCount(
+interface AnalysisResult {
+  analysis: {
+    number: number;
+    summary: string;
+    priority: "critical" | "high" | "medium" | "low";
+    difficulty: "easy" | "medium" | "hard" | "expert";
+    feature: string;
+    stale: boolean;
+    staleReason: string | null;
+  };
+  messageCount: number;
+}
+
+async function waitForNewAnalysis(
   sessionId: string,
-  expectedCount: number,
-  originalIssues: GitHubIssue[],
+  issueNumber: number,
+  lastMessageCount: number,
   apiKey: string,
   maxAttempts = 60,
   intervalMs = 5000
-): Promise<void> {
+): Promise<AnalysisResult | null> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
@@ -149,37 +169,34 @@ async function waitForIssueCount(
     try {
       details = await getSessionDetails(sessionId, apiKey);
     } catch (err) {
-      console.error(`  Poll attempt ${attempt}/${maxAttempts}: Error:`, err);
+      console.error(`  Poll ${attempt}/${maxAttempts}: Error:`, err);
       continue;
     }
 
-    console.log(`  Poll ${attempt}/${maxAttempts}: status=${details.status}, hasOutput=${!!details.structured_output}`);
+    const messages = details.messages || [];
+    const assistantMessages = messages.filter((m) => m.role !== "user");
+    console.log(`  Poll ${attempt}/${maxAttempts}: status=${details.status}, messages=${messages.length}, assistant=${assistantMessages.length} (last seen: ${lastMessageCount})`);
 
-    if (details.structured_output) {
-      const parsed = parseAnalysisOutput(details.structured_output);
-      if (parsed) {
-        const completed = parsed.issues.filter((i) => i.summary && i.feature);
-        if (completed.length >= expectedCount) {
-          addIssues(mergeAnalysisWithOriginal(completed, originalIssues));
-          return;
+    if (assistantMessages.length > lastMessageCount) {
+      for (let j = assistantMessages.length - 1; j >= lastMessageCount; j--) {
+        const msg = assistantMessages[j];
+        const parsed = parseAnalysisFromMessage(msg.content);
+        if (parsed) {
+          console.log(`  Found analysis for #${parsed.number} in message ${j}`);
+          return { analysis: parsed, messageCount: assistantMessages.length };
         }
-        console.log(`  Have ${completed.length}/${expectedCount} issues so far`);
       }
+      console.log(`  New messages found but no valid JSON analysis for #${issueNumber}`);
     }
 
     if (details.status === "finished" || details.status === "stopped" || details.status === "error") {
-      console.log(`  Session ended with status=${details.status} before reaching ${expectedCount} issues`);
-      if (details.structured_output) {
-        const parsed = parseAnalysisOutput(details.structured_output);
-        if (parsed) {
-          addIssues(mergeAnalysisWithOriginal(parsed.issues, originalIssues));
-        }
-      }
-      return;
+      console.log(`  Session ended with status=${details.status}`);
+      return null;
     }
   }
 
-  console.log(`  Timed out waiting for issue count ${expectedCount}`);
+  console.log(`  Timed out waiting for analysis of #${issueNumber}`);
+  return null;
 }
 
 const VALID_STALE_REASONS = new Set(["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved"]);
