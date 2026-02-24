@@ -154,7 +154,7 @@ Open `http://localhost:5173` in your browser, then click **Start Analysis** to b
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DEVIN_API_KEY` | Yes | Devin API bearer token for issue analysis and chat |
+| `DEVIN_API_KEY` | Yes | Devin API v3 service user key (starts with `cog_`) for issue analysis and chat |
 | `GITHUB_TOKEN` | No | GitHub personal access token (increases API rate limits) |
 | `PORT` | No | Backend server port (default: `3001`) |
 | `FRONTEND_URL` | No | Allowed CORS origin (default: `http://localhost:5173`) |
@@ -163,5 +163,5 @@ Open `http://localhost:5173` in your browser, then click **Start Analysis** to b
 
 - **Backend**: Node.js, Express, TypeScript
 - **Frontend**: React, Vite, TypeScript, Tailwind CSS, Lucide Icons
-- **APIs**: GitHub REST API, Devin API v1 (sessions, messages, structured output)
+- **APIs**: GitHub REST API, Devin API v3 (sessions, messages, structured output with JSON Schema)
 - **Analysis**: Devin AI for summarization, prioritization, difficulty assessment, and feature categorization

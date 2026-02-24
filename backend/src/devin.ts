@@ -1,6 +1,6 @@
 import { DevinSession, DevinSessionDetails, GitHubIssue, AnalysisBatch } from "./types";
 
-const DEVIN_API_BASE = "https://api.devin.ai/v1";
+const DEVIN_API_BASE = "https://api.devin.ai/v3/organizations";
 
 function getHeaders(apiKey: string): Record<string, string> {
   return {
@@ -47,8 +47,8 @@ ${issuesSummary}`;
     method: "POST",
     headers: getHeaders(apiKey),
     body: JSON.stringify({
-      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${structuredOutputSchema}`,
-      idempotent: false,
+      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${JSON.stringify(structuredOutputSchema)}`,
+      structured_output_schema: structuredOutputSchema,
     }),
   });
 
@@ -77,30 +77,39 @@ Provide:
 2. Priority: "critical", "high", "medium", or "low" (based on impact, number of comments, severity)
 3. Difficulty: "easy", "medium", "hard", or "expert" (based on complexity, scope of changes needed)
 4. Feature category: a short label like "payments", "accounts", "consent-management", "api", "documentation", "authentication", "ui", "testing", "infrastructure", "integrations", "compliance", or another relevant category
-5. Stale detection:Determine if this issue appears stale or should not be in the backlog. Set "stale" to true if the issue seems outdated, is likely a duplicate, won't be fixed, is not reproducible, or has already been resolved. If stale, set "staleReason" to one of: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved". Otherwise set stale to false and staleReason to null.
+5. Stale detection: Determine if this issue appears stale or should not be in the backlog. Set "stale" to true if the issue seems outdated, is likely a duplicate, won't be fixed, is not reproducible, or has already been resolved. If stale, set "staleReason" to one of: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved". Otherwise set stale to false and staleReason to null.
 
 IMPORTANT: Update your structured output immediately with the analysis.`;
 
-  const structuredOutputSchema = JSON.stringify({
-    issues: [
-      {
-        number: issue.number,
-        summary: "",
-        priority: "medium",
-        difficulty: "medium",
-        feature: "",
-        stale: false,
-        staleReason: null,
+  const structuredOutputSchema = {
+    type: "object" as const,
+    properties: {
+      issues: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          properties: {
+            number: { type: "integer" as const },
+            summary: { type: "string" as const },
+            priority: { type: "string" as const, enum: ["critical", "high", "medium", "low"] },
+            difficulty: { type: "string" as const, enum: ["easy", "medium", "hard", "expert"] },
+            feature: { type: "string" as const },
+            stale: { type: "boolean" as const },
+            staleReason: { type: ["string", "null"] as const, enum: ["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved", null] },
+          },
+          required: ["number", "summary", "priority", "difficulty", "feature", "stale", "staleReason"],
+        },
       },
-    ],
-  });
+    },
+    required: ["issues"],
+  };
 
   const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
     body: JSON.stringify({
-      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${structuredOutputSchema}`,
-      idempotent: false,
+      prompt,
+      structured_output_schema: structuredOutputSchema,
     }),
   });
 
@@ -117,7 +126,6 @@ export async function getSessionDetails(
   apiKey: string
 ): Promise<DevinSessionDetails> {
   const response = await fetch(`${DEVIN_API_BASE}/sessions/${sessionId}`, {
-    method: "GET",
     headers: getHeaders(apiKey),
   });
 
@@ -149,10 +157,7 @@ Please research this issue thoroughly using your knowledge of the wso2/financial
   const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
-    body: JSON.stringify({
-      prompt,
-      idempotent: false,
-    }),
+    body: JSON.stringify({ prompt }),
   });
 
   if (!response.ok) {
@@ -169,7 +174,7 @@ export async function sendSessionMessage(
   apiKey: string
 ): Promise<void> {
   const response = await fetch(
-    `${DEVIN_API_BASE}/sessions/${sessionId}/message`,
+    `${DEVIN_API_BASE}/sessions/${sessionId}/messages`,
     {
       method: "POST",
       headers: getHeaders(apiKey),
