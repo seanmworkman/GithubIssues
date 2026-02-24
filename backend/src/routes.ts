@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { fetchOpenIssues, fetchSingleIssue } from "./github";
 import {
   createAnalysisSession,
+  sendNextIssue,
   getSessionDetails,
   createResearchSession,
   sendSessionMessage,
@@ -64,23 +65,46 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
 
     setAnalysisStatus("analyzing");
     setAnalysisProgress(0, rawIssues.length);
-    console.log(`Creating single Devin session for all ${rawIssues.length} issues`);
 
-    const session = await createAnalysisSession(rawIssues, apiKey);
-    console.log(`Created analysis session ${session.session_id} for ${rawIssues.length} issues`);
+    console.log(`Creating Devin session with first issue (#${rawIssues[0].number})`);
+    const session = await createAnalysisSession(rawIssues[0], apiKey);
+    const sessionId = session.session_id;
+    console.log(`Created analysis session ${sessionId}`);
 
-    addAnalysisSession("all-issues", session.session_id, 0, rawIssues.map((i) => i.number));
+    addAnalysisSession("analysis", sessionId, 0, rawIssues.map((i) => i.number));
 
-    const analyzed = await pollForAnalysisResults(
-      session.session_id,
-      rawIssues,
-      apiKey
-    );
+    console.log(`Waiting for first issue (#${rawIssues[0].number}) to be analyzed...`);
+    setAnalysisProgress(0, rawIssues.length, `#${rawIssues[0].number} ${rawIssues[0].title}`);
+    await waitForIssueCount(sessionId, 1, rawIssues, apiKey);
+    setAnalysisProgress(1, rawIssues.length);
+    console.log(`[1/${rawIssues.length}] Issue #${rawIssues[0].number} analyzed`);
 
-    if (analyzed.length > 0) {
-      setIssues(analyzed);
+    for (let i = 1; i < rawIssues.length; i++) {
+      const issue = rawIssues[i];
+      console.log(`[${i + 1}/${rawIssues.length}] Sending issue #${issue.number} to session...`);
+      setAnalysisProgress(i, rawIssues.length, `#${issue.number} ${issue.title}`);
+
+      try {
+        await sendNextIssue(sessionId, issue, apiKey);
+        await waitForIssueCount(sessionId, i + 1, rawIssues, apiKey);
+        console.log(`[${i + 1}/${rawIssues.length}] Issue #${issue.number} analyzed`);
+      } catch (err) {
+        console.error(`[${i + 1}/${rawIssues.length}] Error analyzing issue #${issue.number}:`, err);
+      }
+
+      setAnalysisProgress(i + 1, rawIssues.length);
     }
 
+    const details = await getSessionDetails(sessionId, apiKey);
+    if (details.structured_output) {
+      const parsed = parseAnalysisOutput(details.structured_output);
+      if (parsed && parsed.issues.length > 0) {
+        const merged = mergeAnalysisWithOriginal(parsed.issues, rawIssues);
+        setIssues(merged);
+      }
+    }
+
+    const analyzed = getStore().issues;
     const fallbackIssues = rawIssues.filter(
       (raw) => !analyzed.some((a) => a.number === raw.number)
     );
@@ -110,16 +134,14 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
   }
 });
 
-async function pollForAnalysisResults(
+async function waitForIssueCount(
   sessionId: string,
+  expectedCount: number,
   originalIssues: GitHubIssue[],
   apiKey: string,
-  maxAttempts = 120,
-  intervalMs = 10000
-): Promise<AnalyzedIssue[]> {
-  console.log(`  Polling session ${sessionId} for ${originalIssues.length} issues (max ${maxAttempts} attempts, ${intervalMs}ms interval)`);
-  let lastSeenCount = 0;
-
+  maxAttempts = 60,
+  intervalMs = 5000
+): Promise<void> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
@@ -127,43 +149,37 @@ async function pollForAnalysisResults(
     try {
       details = await getSessionDetails(sessionId, apiKey);
     } catch (err) {
-      console.error(`  Poll attempt ${attempt}/${maxAttempts}: Error fetching session details:`, err);
+      console.error(`  Poll attempt ${attempt}/${maxAttempts}: Error:`, err);
       continue;
     }
 
-    const hasOutput = !!details.structured_output;
-    console.log(`  Poll attempt ${attempt}/${maxAttempts}: status=${details.status}, hasStructuredOutput=${hasOutput}`);
+    console.log(`  Poll ${attempt}/${maxAttempts}: status=${details.status}, hasOutput=${!!details.structured_output}`);
 
     if (details.structured_output) {
       const parsed = parseAnalysisOutput(details.structured_output);
-      if (parsed && parsed.issues.length > 0) {
-        const completedIssues = parsed.issues.filter(
-          (i) => i.summary && i.feature
-        );
-
-        if (completedIssues.length > lastSeenCount) {
-          console.log(`  Progress: ${completedIssues.length}/${originalIssues.length} issues analyzed`);
-          lastSeenCount = completedIssues.length;
-          setAnalysisProgress(completedIssues.length, originalIssues.length);
-          addIssues(mergeAnalysisWithOriginal(completedIssues, originalIssues));
+      if (parsed) {
+        const completed = parsed.issues.filter((i) => i.summary && i.feature);
+        if (completed.length >= expectedCount) {
+          addIssues(mergeAnalysisWithOriginal(completed, originalIssues));
+          return;
         }
+        console.log(`  Have ${completed.length}/${expectedCount} issues so far`);
       }
     }
 
     if (details.status === "finished" || details.status === "stopped" || details.status === "error") {
-      console.log(`  Session ended with status=${details.status}`);
+      console.log(`  Session ended with status=${details.status} before reaching ${expectedCount} issues`);
       if (details.structured_output) {
         const parsed = parseAnalysisOutput(details.structured_output);
         if (parsed) {
-          return mergeAnalysisWithOriginal(parsed.issues, originalIssues);
+          addIssues(mergeAnalysisWithOriginal(parsed.issues, originalIssues));
         }
       }
-      return [];
+      return;
     }
   }
 
-  console.log(`  Polling timed out after ${maxAttempts} attempts for session ${sessionId}`);
-  return getStore().issues;
+  console.log(`  Timed out waiting for issue count ${expectedCount}`);
 }
 
 const VALID_STALE_REASONS = new Set(["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved"]);
