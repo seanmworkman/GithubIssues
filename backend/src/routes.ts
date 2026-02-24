@@ -174,23 +174,27 @@ async function waitForNewAnalysis(
     }
 
     const messages = details.messages || [];
-    const assistantMessages = messages.filter((m) => m.role !== "user");
-    console.log(`  Poll ${attempt}/${maxAttempts}: status=${details.status}, messages=${messages.length}, assistant=${assistantMessages.length} (last seen: ${lastMessageCount})`);
+    const statusEnum = details.status_enum || details.status;
+    console.log(`  Poll ${attempt}/${maxAttempts}: status=${details.status}, status_enum=${statusEnum}, totalMessages=${messages.length} (last seen: ${lastMessageCount})`);
 
-    if (assistantMessages.length > lastMessageCount) {
-      for (let j = assistantMessages.length - 1; j >= lastMessageCount; j--) {
-        const msg = assistantMessages[j];
-        const parsed = parseAnalysisFromMessage(msg.content);
+    if (messages.length > lastMessageCount) {
+      for (let j = messages.length - 1; j >= lastMessageCount; j--) {
+        const msg = messages[j];
+        const msgText = msg.message || "";
+        console.log(`  Message[${j}] type="${msg.type}" origin="${msg.origin}" text(first 300)="${msgText.substring(0, 300)}"`);
+        if (msg.type === "user_message") continue;
+        const parsed = parseAnalysisFromMessage(msgText);
         if (parsed) {
           console.log(`  Found analysis for #${parsed.number} in message ${j}`);
-          return { analysis: parsed, messageCount: assistantMessages.length };
+          return { analysis: parsed, messageCount: messages.length };
         }
       }
-      console.log(`  New messages found but no valid JSON analysis for #${issueNumber}`);
+      console.log(`  New messages but no valid JSON for #${issueNumber}, updating lastMessageCount`);
+      lastMessageCount = messages.length;
     }
 
-    if (details.status === "finished" || details.status === "stopped" || details.status === "error") {
-      console.log(`  Session ended with status=${details.status}`);
+    if (statusEnum === "finished" || statusEnum === "blocked" || statusEnum === "expired") {
+      console.log(`  Session ended with status_enum=${statusEnum}`);
       return null;
     }
   }
@@ -429,11 +433,11 @@ router.get("/chat/:sessionId", async (req: Request, res: Response) => {
     const localSession = getChatSession(sessionId);
 
     const devinMessages = (details.messages || [])
-      .filter((m) => m.role !== "user")
+      .filter((m) => m.type !== "user_message")
       .map((m) => ({
         role: "assistant",
-        content: m.content,
-        timestamp: m.created_at || new Date().toISOString(),
+        content: m.message,
+        timestamp: m.timestamp || new Date().toISOString(),
       }));
 
     const localMessages = localSession ? localSession.messages : [];
