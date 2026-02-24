@@ -2,10 +2,10 @@ import { DevinSession, DevinSessionDetails, GitHubIssue, AnalysisBatch } from ".
 
 function getOrgBaseUrl(): string {
   const orgId = process.env.DEVIN_ORG_ID;
-  if (!orgId) {
-    throw new Error("DEVIN_ORG_ID not configured. Set it in your .env file.");
+  if (orgId) {
+    return `https://api.devin.ai/v3/organizations/${orgId}`;
   }
-  return `https://api.devin.ai/v3/organizations/${orgId}`;
+  return "https://api.devin.ai/v3/organizations";
 }
 
 function getHeaders(apiKey: string): Record<string, string> {
