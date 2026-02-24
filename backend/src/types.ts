@@ -31,7 +31,6 @@ export interface AnalyzedIssue {
 export interface DevinSession {
   session_id: string;
   status: string;
-  status_detail: string | null;
   url: string;
   structured_output?: Record<string, unknown> | null;
 }
@@ -39,9 +38,9 @@ export interface DevinSession {
 export interface DevinSessionDetails {
   session_id: string;
   status: string;
-  status_detail: string | null;
   url: string;
   structured_output: Record<string, unknown> | null;
+  messages: Array<{ role: string; content: string; created_at?: string }>;
 }
 
 export interface ChatSession {

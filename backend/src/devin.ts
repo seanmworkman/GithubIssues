@@ -1,12 +1,6 @@
 import { DevinSession, DevinSessionDetails, GitHubIssue, AnalysisBatch } from "./types";
 
-function getOrgBaseUrl(): string {
-  const orgId = process.env.DEVIN_ORG_ID;
-  if (orgId) {
-    return `https://api.devin.ai/v3/organizations/${orgId}`;
-  }
-  return "https://api.devin.ai/v3/organizations";
-}
+const DEVIN_API_BASE = "https://api.devin.ai/v1";
 
 function getHeaders(apiKey: string): Record<string, string> {
   return {
@@ -39,36 +33,24 @@ Here are the issues:
 
 ${issuesSummary}`;
 
-  const structuredOutputSchema = {
-    type: "object" as const,
-    properties: {
-      issues: {
-        type: "array" as const,
-        items: {
-          type: "object" as const,
-          properties: {
-            number: { type: "integer" as const },
-            summary: { type: "string" as const },
-            priority: { type: "string" as const, enum: ["critical", "high", "medium", "low"] },
-            difficulty: { type: "string" as const, enum: ["easy", "medium", "hard", "expert"] },
-            feature: { type: "string" as const },
-            stale: { type: "boolean" as const },
-            staleReason: { type: ["string", "null"] as const, enum: ["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved", null] },
-          },
-          required: ["number", "summary", "priority", "difficulty", "feature", "stale", "staleReason"],
-        },
-      },
-    },
-    required: ["issues"],
-  };
+  const structuredOutputDefault= JSON.stringify({
+    issues: issues.map((i) => ({
+      number: i.number,
+      summary: "",
+      priority: "medium",
+      difficulty: "medium",
+      feature: "",
+      stale: false,
+      staleReason: null,
+    })),
+  });
 
-  const baseUrl = getOrgBaseUrl();
-  const response = await fetch(`${baseUrl}/sessions`, {
+  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
     body: JSON.stringify({
-      prompt,
-      structured_output_schema: structuredOutputSchema,
+      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${structuredOutputDefault}`,
+      structured_output: structuredOutputDefault,
     }),
   });
 
@@ -84,8 +66,8 @@ export async function getSessionDetails(
   sessionId: string,
   apiKey: string
 ): Promise<DevinSessionDetails> {
-  const baseUrl = getOrgBaseUrl();
-  const response = await fetch(`${baseUrl}/sessions/${sessionId}`, {
+  const response = await fetch(`${DEVIN_API_BASE}/sessions/${sessionId}`, {
+    method: "GET",
     headers: getHeaders(apiKey),
   });
 
@@ -114,11 +96,13 @@ ${question}
 
 Please research this issue thoroughly using your knowledge of the wso2/financial-services-accelerator codebase and provide a helpful, detailed answer. If the question involves code, reference specific files or components where relevant.`;
 
-  const baseUrl = getOrgBaseUrl();
-  const response = await fetch(`${baseUrl}/sessions`, {
+  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({
+      prompt,
+      idempotent: false,
+    }),
   });
 
   if (!response.ok) {
@@ -134,9 +118,8 @@ export async function sendSessionMessage(
   message: string,
   apiKey: string
 ): Promise<void> {
-  const baseUrl = getOrgBaseUrl();
   const response = await fetch(
-    `${baseUrl}/sessions/${sessionId}/messages`,
+    `${DEVIN_API_BASE}/sessions/${sessionId}/message`,
     {
       method: "POST",
       headers: getHeaders(apiKey),

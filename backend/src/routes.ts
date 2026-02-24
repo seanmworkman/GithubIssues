@@ -132,7 +132,7 @@ async function pollForAnalysisResults(
     }
 
     const hasOutput = !!details.structured_output;
-    console.log(`  Poll attempt ${attempt}/${maxAttempts}: status=${details.status}, status_detail=${details.status_detail}, hasStructuredOutput=${hasOutput}`);
+    console.log(`  Poll attempt ${attempt}/${maxAttempts}: status=${details.status}, hasStructuredOutput=${hasOutput}`);
 
     if (details.structured_output) {
       const parsed = parseAnalysisOutput(details.structured_output);
@@ -150,10 +150,8 @@ async function pollForAnalysisResults(
       }
     }
 
-    const isTerminal = details.status === "exit" || details.status === "error" || details.status === "suspended";
-    const isFinished = details.status_detail === "finished";
-    if (isTerminal || isFinished) {
-      console.log(`  Session ended with status=${details.status}, status_detail=${details.status_detail}`);
+    if (details.status === "finished" || details.status === "stopped" || details.status === "error") {
+      console.log(`  Session ended with status=${details.status}`);
       if (details.structured_output) {
         const parsed = parseAnalysisOutput(details.structured_output);
         if (parsed) {
@@ -397,28 +395,26 @@ router.get("/chat/:sessionId", async (req: Request, res: Response) => {
     const details = await getSessionDetails(sessionId, apiKey);
     const localSession = getChatSession(sessionId);
 
+    const devinMessages = (details.messages || [])
+      .filter((m) => m.role !== "user")
+      .map((m) => ({
+        role: "assistant",
+        content: m.content,
+        timestamp: m.created_at || new Date().toISOString(),
+      }));
+
     const localMessages = localSession ? localSession.messages : [];
 
-    const statusDetail = details.status_detail;
-    const isSessionDone = details.status === "exit" || details.status === "suspended" || statusDetail === "finished";
-
-    if (isSessionDone && localMessages.length > 0) {
-      const lastMsg = localMessages[localMessages.length - 1];
-      if (lastMsg.role === "user") {
-        localMessages.push({
-          role: "assistant",
-          content: "Session has completed. You can start a new session for further questions.",
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
+    const allMessages = [...localMessages, ...devinMessages];
+    allMessages.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
 
     res.json({
       sessionId,
       status: details.status,
-      statusDetail: details.status_detail,
       url: details.url,
-      messages: localMessages,
+      messages: allMessages,
     });
   } catch (error) {
     console.error("Error getting chat session:", error);
