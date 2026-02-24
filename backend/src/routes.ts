@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { fetchOpenIssues, fetchSingleIssue } from "./github";
 import {
-  createSingleIssueAnalysisSession,
+  createAnalysisSession,
   getSessionDetails,
   createResearchSession,
   sendSessionMessage,
@@ -64,51 +64,42 @@ router.post("/issues/analyze", async (_req: Request, res: Response) => {
 
     setAnalysisStatus("analyzing");
     setAnalysisProgress(0, rawIssues.length);
-    console.log(`Processing ${rawIssues.length} issues one-by-one`);
+    console.log(`Creating single Devin session for all ${rawIssues.length} issues`);
 
-    for (let i = 0; i < rawIssues.length; i++) {
-      const issue = rawIssues[i];
-      setAnalysisProgress(i, rawIssues.length, `#${issue.number}: ${issue.title}`);
+    const session = await createAnalysisSession(rawIssues, apiKey);
+    console.log(`Created analysis session ${session.session_id} for ${rawIssues.length} issues`);
 
-      try {
-        const session = await createSingleIssueAnalysisSession(issue, apiKey);
-        console.log(`[${i + 1}/${rawIssues.length}] Created session ${session.session_id} for issue #${issue.number}`);
+    addAnalysisSession("all-issues", session.session_id, 0, rawIssues.map((i) => i.number));
 
-        addAnalysisSession(
-          `issue-${issue.number}`,
-          session.session_id,
-          i,
-          [issue.number]
-        );
+    const analyzed = await pollForAnalysisResults(
+      session.session_id,
+      rawIssues,
+      apiKey
+    );
 
-        const analyzed = await pollForAnalysisResults(
-          session.session_id,
-          [issue],
-          apiKey
-        );
+    if (analyzed.length > 0) {
+      setIssues(analyzed);
+    }
 
-        addIssues(analyzed);
-        setAnalysisProgress(i + 1, rawIssues.length);
-        console.log(`[${i + 1}/${rawIssues.length}] Issue #${issue.number} analyzed`);
-      } catch (issueError) {
-        console.error(`[${i + 1}/${rawIssues.length}] Error analyzing issue #${issue.number}:`, issueError);
-
-        addIssues([{
-          number: issue.number,
-          title: issue.title,
-          summary: (issue.body || "No description available").substring(0, 200),
-          priority: "medium" as const,
-          difficulty: "medium" as const,
-          feature: inferFeatureFromLabels(issue),
-          stale: false,
-          staleReason: null,
-          html_url: issue.html_url,
-          labels: issue.labels,
-          created_at: issue.created_at,
-          comments: issue.comments,
-        }]);
-        setAnalysisProgress(i + 1, rawIssues.length);
-      }
+    const fallbackIssues = rawIssues.filter(
+      (raw) => !analyzed.some((a) => a.number === raw.number)
+    );
+    if (fallbackIssues.length > 0) {
+      console.log(`${fallbackIssues.length} issues not analyzed by Devin, using fallback`);
+      addIssues(fallbackIssues.map((issue) => ({
+        number: issue.number,
+        title: issue.title,
+        summary: (issue.body || "No description available").substring(0, 200),
+        priority: "medium" as const,
+        difficulty: "medium" as const,
+        feature: inferFeatureFromLabels(issue),
+        stale: false,
+        staleReason: null,
+        html_url: issue.html_url,
+        labels: issue.labels,
+        created_at: issue.created_at,
+        comments: issue.comments,
+      })));
     }
 
     setAnalysisStatus("complete");
@@ -123,11 +114,11 @@ async function pollForAnalysisResults(
   sessionId: string,
   originalIssues: GitHubIssue[],
   apiKey: string,
-  maxAttempts = 30,
-  intervalMs = 5000
+  maxAttempts = 120,
+  intervalMs = 10000
 ): Promise<AnalyzedIssue[]> {
-  const issueNums = originalIssues.map((i) => i.number).join(", ");
-  console.log(`  Polling session ${sessionId} for issues [${issueNums}] (max ${maxAttempts} attempts, ${intervalMs}ms interval)`);
+  console.log(`  Polling session ${sessionId} for ${originalIssues.length} issues (max ${maxAttempts} attempts, ${intervalMs}ms interval)`);
+  let lastSeenCount = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -150,11 +141,11 @@ async function pollForAnalysisResults(
           (i) => i.summary && i.feature
         );
 
-        console.log(`  Parsed ${completedIssues.length}/${originalIssues.length} completed issues from structured output`);
-
-        if (completedIssues.length >= originalIssues.length * 0.5) {
-          console.log(`  Sufficient results, returning analysis`);
-          return mergeAnalysisWithOriginal(completedIssues, originalIssues);
+        if (completedIssues.length > lastSeenCount) {
+          console.log(`  Progress: ${completedIssues.length}/${originalIssues.length} issues analyzed`);
+          lastSeenCount = completedIssues.length;
+          setAnalysisProgress(completedIssues.length, originalIssues.length);
+          addIssues(mergeAnalysisWithOriginal(completedIssues, originalIssues));
         }
       }
     }
@@ -169,40 +160,12 @@ async function pollForAnalysisResults(
           return mergeAnalysisWithOriginal(parsed.issues, originalIssues);
         }
       }
-
-      console.log(`  No structured output, using fallback for issues [${issueNums}]`);
-      return originalIssues.map((issue) => ({
-        number: issue.number,
-        title: issue.title,
-        summary: (issue.body || "No description available").substring(0, 200),
-        priority: "medium" as const,
-        difficulty: "medium" as const,
-        feature: inferFeatureFromLabels(issue),
-        stale: false,
-        staleReason: null,
-        html_url: issue.html_url,
-        labels: issue.labels,
-        created_at: issue.created_at,
-        comments: issue.comments,
-      }));
+      return [];
     }
   }
 
-  console.log(`  Polling timed out after ${maxAttempts} attempts for session ${sessionId}, using fallback`);
-  return originalIssues.map((issue) => ({
-    number: issue.number,
-    title: issue.title,
-    summary: (issue.body || "No description available").substring(0, 200),
-    priority: "medium" as const,
-    difficulty: "medium" as const,
-    feature: inferFeatureFromLabels(issue),
-    stale: false,
-    staleReason: null,
-    html_url: issue.html_url,
-    labels: issue.labels,
-    created_at: issue.created_at,
-    comments: issue.comments,
-  }));
+  console.log(`  Polling timed out after ${maxAttempts} attempts for session ${sessionId}`);
+  return getStore().issues;
 }
 
 const VALID_STALE_REASONS = new Set(["outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved"]);

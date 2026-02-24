@@ -11,13 +11,12 @@ function getHeaders(apiKey: string): Record<string, string> {
 
 export async function createAnalysisSession(
   issues: GitHubIssue[],
-  batchIndex: number,
   apiKey: string
 ): Promise<DevinSession> {
   const issuesSummary = issues
     .map(
       (i) =>
-        `#${i.number}: "${i.title}" (labels: ${i.labels.map((l) => l.name).join(", ") || "none"}, comments: ${i.comments})\nBody excerpt: ${(i.body || "No description").substring(0, 300)}`
+        `#${i.number}: "${i.title}" (labels: ${i.labels.map((l) => l.name).join(", ") || "none"}, comments: ${i.comments}, created: ${i.created_at})\nBody excerpt: ${(i.body || "No description").substring(0, 300)}`
     )
     .join("\n\n");
 
@@ -26,60 +25,13 @@ export async function createAnalysisSession(
 2. Priority: "critical", "high", "medium", or "low" (based on impact, number of comments, severity)
 3. Difficulty: "easy", "medium", "hard", or "expert" (based on complexity, scope of changes needed)
 4. Feature category: a short label like "payments", "accounts", "consent-management", "api", "documentation", "authentication", "ui", "testing", "infrastructure", "integrations", "compliance", or another relevant category
+5. Stale detection: Determine if the issue appears stale or should not be in the backlog. Set "stale" to true if the issue seems outdated, is likely a duplicate, won't be fixed, is not reproducible, or has already been resolved. If stale, set "staleReason" to one of: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved". Otherwise set stale to false and staleReason to null.
 
-IMPORTANT: You MUST update your structured output with the analysis for ALL issues listed below. Update the structured output immediately as you analyze each issue.
+IMPORTANT: You MUST update your structured output with the analysis for ALL ${issues.length} issues listed below. Update the structured output incrementally as you analyze each issue so progress can be tracked.
 
-Here are the issues (batch ${batchIndex + 1}):
+Here are the issues:
 
 ${issuesSummary}`;
-
-  const structuredOutputSchema = JSON.stringify({
-    issues: issues.map((i) => ({
-      number: i.number,
-      summary: "",
-      priority: "medium",
-      difficulty: "medium",
-      feature: "",
-    })),
-  });
-
-  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
-    method: "POST",
-    headers: getHeaders(apiKey),
-    body: JSON.stringify({
-      prompt: `${prompt}\n\nPlease use this structured output format and update it as you work:\n${JSON.stringify(structuredOutputSchema)}`,
-      structured_output_schema: structuredOutputSchema,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Devin API error (${response.status}): ${errorText}`);
-  }
-
-  return response.json() as Promise<DevinSession>;
-}
-
-export async function createSingleIssueAnalysisSession(
-  issue: GitHubIssue,
-  apiKey: string
-): Promise<DevinSession> {
-  const prompt = `You are analyzing a single GitHub issue from the wso2/financial-services-accelerator repository (an open-source financial services accelerator toolkit).
-
-Issue #${issue.number}: "${issue.title}"
-Labels: ${issue.labels.map((l) => l.name).join(", ") || "none"}
-Comments: ${issue.comments}
-Created: ${issue.created_at}
-Body: ${(issue.body || "No description").substring(0, 500)}
-
-Provide:
-1. A concise 1-2 sentence summary
-2. Priority: "critical", "high", "medium", or "low" (based on impact, number of comments, severity)
-3. Difficulty: "easy", "medium", "hard", or "expert" (based on complexity, scope of changes needed)
-4. Feature category: a short label like "payments", "accounts", "consent-management", "api", "documentation", "authentication", "ui", "testing", "infrastructure", "integrations", "compliance", or another relevant category
-5. Stale detection: Determine if this issue appears stale or should not be in the backlog. Set "stale" to true if the issue seems outdated, is likely a duplicate, won't be fixed, is not reproducible, or has already been resolved. If stale, set "staleReason" to one of: "outdated", "duplicate", "wont-fix", "not-reproducible", "already-resolved". Otherwise set stale to false and staleReason to null.
-
-IMPORTANT: Update your structured output immediately with the analysis.`;
 
   const structuredOutputSchema = {
     type: "object" as const,
@@ -120,6 +72,7 @@ IMPORTANT: Update your structured output immediately with the analysis.`;
 
   return response.json() as Promise<DevinSession>;
 }
+
 
 export async function getSessionDetails(
   sessionId: string,
