@@ -59,7 +59,8 @@ GithubIssues/
 
 - **Node.js** >= 18 (see [Version Compatibility](#version-compatibility) below)
 - **npm** >= 9
-- **Devin API Key** ([generate one here](https://app.devin.ai/settings/api-keys))
+- **Devin API Key** — v3 service user key starting with `cog_` ([create one here](https://app.devin.ai/settings/api-keys))
+- **Devin Org ID** — your Devin organization ID (found in your Devin organization settings)
 - **GitHub Token** (optional, increases rate limits)
 
 ## Version Compatibility
@@ -101,6 +102,7 @@ Edit `.env` and add your API keys:
 
 ```
 DEVIN_API_KEY=your_devin_api_key_here
+DEVIN_ORG_ID=your_devin_org_id_here
 GITHUB_TOKEN=your_github_token_here   # optional
 PORT=3001
 ```
@@ -155,6 +157,7 @@ Open `http://localhost:5173` in your browser, then click **Start Analysis** to b
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DEVIN_API_KEY` | Yes | Devin API v3 service user key (starts with `cog_`) for issue analysis and chat |
+| `DEVIN_ORG_ID` | Yes | Devin organization ID (used in v3 API URL path) |
 | `GITHUB_TOKEN` | No | GitHub personal access token (increases API rate limits) |
 | `PORT` | No | Backend server port (default: `3001`) |
 | `FRONTEND_URL` | No | Allowed CORS origin (default: `http://localhost:5173`) |

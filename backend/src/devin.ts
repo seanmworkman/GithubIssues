@@ -1,6 +1,12 @@
 import { DevinSession, DevinSessionDetails, GitHubIssue, AnalysisBatch } from "./types";
 
-const DEVIN_API_BASE = "https://api.devin.ai/v3/organizations";
+function getOrgBaseUrl(): string {
+  const orgId = process.env.DEVIN_ORG_ID;
+  if (!orgId) {
+    throw new Error("DEVIN_ORG_ID not configured. Set it in your .env file.");
+  }
+  return `https://api.devin.ai/v3/organizations/${orgId}`;
+}
 
 function getHeaders(apiKey: string): Record<string, string> {
   return {
@@ -56,7 +62,8 @@ ${issuesSummary}`;
     required: ["issues"],
   };
 
-  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
+  const baseUrl = getOrgBaseUrl();
+  const response = await fetch(`${baseUrl}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
     body: JSON.stringify({
@@ -73,12 +80,12 @@ ${issuesSummary}`;
   return response.json() as Promise<DevinSession>;
 }
 
-
 export async function getSessionDetails(
   sessionId: string,
   apiKey: string
 ): Promise<DevinSessionDetails> {
-  const response = await fetch(`${DEVIN_API_BASE}/sessions/${sessionId}`, {
+  const baseUrl = getOrgBaseUrl();
+  const response = await fetch(`${baseUrl}/sessions/${sessionId}`, {
     headers: getHeaders(apiKey),
   });
 
@@ -107,7 +114,8 @@ ${question}
 
 Please research this issue thoroughly using your knowledge of the wso2/financial-services-accelerator codebase and provide a helpful, detailed answer. If the question involves code, reference specific files or components where relevant.`;
 
-  const response = await fetch(`${DEVIN_API_BASE}/sessions`, {
+  const baseUrl = getOrgBaseUrl();
+  const response = await fetch(`${baseUrl}/sessions`, {
     method: "POST",
     headers: getHeaders(apiKey),
     body: JSON.stringify({ prompt }),
@@ -126,8 +134,9 @@ export async function sendSessionMessage(
   message: string,
   apiKey: string
 ): Promise<void> {
+  const baseUrl = getOrgBaseUrl();
   const response = await fetch(
-    `${DEVIN_API_BASE}/sessions/${sessionId}/messages`,
+    `${baseUrl}/sessions/${sessionId}/messages`,
     {
       method: "POST",
       headers: getHeaders(apiKey),
